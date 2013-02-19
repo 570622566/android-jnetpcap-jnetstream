@@ -1,0 +1,24 @@
+<BODY>
+A network protocol coder/decoder package. The package provide encoding
+and decoding services. The main class is the
+<code>ProtocolCodecs</code>
+class which contains static factory methods for various codec functions.
+The package functions mainly through its own interfaces which allow the
+codecs to save state during the codec processes. The main work
+interfaces are:
+
+<ul>
+	<li>CodecPacket</li>
+	<li>CodecHeader</li>
+	<li>CodecMetaPacket</li>
+	<li>CodecMetaHeader</li>
+</ul>
+
+These interfaces define all of the interactions a codec has with the
+underly packet object and its internal state.
+
+<h3>Changing factory implementation</h3>
+The factory class can be changed using the system property
+<b>jnetstream.capture.packet.codec</b>
+system property. The f
+</BODY>

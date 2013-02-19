@@ -1,0 +1,12 @@
+<BODY>
+<P>Packet flow analyzer. The analyzer can analyze incomming packets and group them
+into a natural flows. Packets are grouped into flows according to FlowKey criteria.
+A FlowKey determines the fields within the packet which are significant and
+are used for grouping other packets with similar matching keys. In the end, the
+grouped packets are returned as PacketFlow object, which contains the
+grouped packets.</P>
+
+<P>The flow keys are defined within the NPL definition of a protocol. Therefore
+each protocol can define its own set of criteria, within a flow key, for
+grouping similar packets together.</P>
+</BODY>

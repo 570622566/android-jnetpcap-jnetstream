@@ -1,0 +1,29 @@
+<html>
+<body>
+<P>A capture file manipulation package. There a number of capture file formats 
+that are used to store captured packets inside a file. This package allows detailed access
+and traversal of the structure of each of these files.</P>
+
+<P>The package provides a base set of interfaces for accessing the detailed structure of a
+capture file, further detail with supplied interfaces is supplied with the file definition
+itself in jnetpcap.file.type package. At this level within the API, some amount of knowledge
+about the file structure is needed. The amount is detail required is still small compared
+to the actual complexity of some of the file formats. The section below describes the
+abstracted representation of the capture file structure used by this package.</P>
+
+<h3>Representation of capture file structure</h3>
+<P>The structure of each capture file, as presented by this package is as follows:
+<UL> 
+ <LI> A capture file may contain 1 or more BlockRecords, sometimes also referred to
+ as "file header". The BlockRecord usually contains information about the block such as
+ unique ID field called the "Magic Pattern" or "Magic Number", block version information
+ and some other meta information. For example Pcap and Snoop files contain only a single
+ BlockRecord, but Nap file type usually contains more than one.
+ 
+ <LI> A BlockRecord contains 0 or more DataRecords. BlockRecord is not of type DataRecord
+ and thus may not be contained within another BlockRecord. The most common type of DataRecord
+ is a PacketRecord, but other types exist as well for other formats. 
+</UL>
+
+</body>
+</html>

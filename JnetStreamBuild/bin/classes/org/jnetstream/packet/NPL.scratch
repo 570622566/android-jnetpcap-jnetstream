@@ -1,0 +1,35 @@
+
+
+public header IPv4 {
+
+
+	field byte ver:4 = 4;
+	field byte hlen:4 = _length / 4 bytes;
+	field int id = _state.id;
+	
+	field crc32 checksum {
+		NoChecksum(0)
+		;
+		
+		checksum.set(_buffer, checksum._offset/bytes, checksum._length/bytes)
+	};
+	
+	field ip4 source = _initSource.ip4;
+	field ip4 destination = _initDestination.ip4;
+	
+	/* Linked fields are automatically initialized based on _nextHeader field
+	 * and ProtocolRegistry binding lookup
+	 */
+	field linked short protocol {
+		TCP(17),
+		UDP(6)
+		;
+	};
+}
+
+public header TCP {
+
+	/* When more than 1 field is linked, auto-binding is disabled */
+	field linked short dport;
+	field linked short sport;
+}

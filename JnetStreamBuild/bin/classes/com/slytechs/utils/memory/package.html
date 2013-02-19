@@ -1,0 +1,10 @@
+<HTML>
+<BODY>
+Memory allocation classes. Classes which allocate and manage memory. The main 
+class is Malloc class which allocates a large direct buffer from the native
+system heap and then manages allocation and free requests from this large
+buffer. The Malloc class maintains SoftReferences to the allocated view buffers
+and knows when those allocated buffers are freed by the system. They are
+appropriately freed up from the internal free list and resued when possible.
+</BODY>
+</HTML>

@@ -1,0 +1,76 @@
+<HTML>
+<BODY>
+<P>A network packet API. This package defines the API for accessing
+packet buffer, decoding its contents and modifying its state. The main interface is the Packet
+interface which provides top level access to each captured packet. Using
+the Packet interface, you can access the raw packet buffer which contains
+the sequence of octets that make up the contents of the packet. You can
+manipulate those buffer contents using high level accessor and setter methods,
+insert, remove and copy buffer contents around. <P>
+<B>Example: accessing packet's buffer content directly and then using high level
+API for which Packet interface is the superclass:
+<PRE>
+LiveCapture capture = CaptureFactory.openLive();
+
+while (capture.hasNext()) {
+  Packet packet = capture.next();
+  
+  ByteBuffer rawBuffer = packet.getBuffer();
+  // Check and make sure buffer has packet data
+  if (rawBuffer.limit() == 0) {
+    return; // Empty buffer
+  }
+  
+  /*
+   * Next lets call on higher level API to decode the contents of the buffer.
+   * The IPv4 interface is auto generated from the related NPL definition. It 
+   * provides full access to the structure of the IP header. All data returned
+   * is backed by the back-end rawBuffer returned earlier. Any changes to
+   * the rawBuffer, are also reflected by the returned values from the higher
+   * level API. If the packet structure is altered significantly, Packet.update()
+   * must be called as well.
+   */
+  if (packet.hasCompleteHeader(IPv4.class)) {
+    IPv4 ip = packet.getHeader(IPv4.class);
+    System.out.println("IP header version = " + ip.version());
+    System.out.println("IP header flags = " + ip.flags());
+  }
+}
+</PRE>
+</p>
+<h2>Creating new packets</h2>
+Creating new packets is easy. The package provides a static factory called 
+<code>Packets</code> for
+creating an empty packet that can easily be populated with headers and data.
+
+<pre>
+Packet packet = Packet.newPacket();
+packet.addAll(Ethernet2.class, IPv4.class, TCP.class);
+</pre>
+
+The above example creates a new empty packet and then adds to the packet
+3 headers, Ethernet2, IPv4 and TCP. Each header is initialized to its defaults.
+To aid in further initializing the packets can be initialized to a known state
+using CaptureDevice, java.util.Properties or another packet using one of the
+flavours of <code>initFrom</code> method call. 
+<pre>
+CaptureDevice device = Captures.deviceList().get(0);
+
+Packet packet = Packet.newPacket(Ethernet2.class, IPv4.class, TCP.class);
+packet.initSource(device);
+
+IPv4 ip = packet.getHeader(IPv4.class);
+ip.destination(IPv4.BROADCAST);
+</pre>
+First we acquire the first network interface for our system. Next we create
+a new packet with Ethernet2, IPv4 and TCP headers initialized to their defaults
+and bound to each other. Next we allow each header to pull properties out of the
+CaptureDevice to initialize any source parameters. This would be IPv4.source
+ and Ethernet2.source fields in those headers. Destination fields stay at
+ their defaults which is all zeroed out. Next we set the IPv4.destionation
+ field to value of a IPv4.BROADCAST which equates to 255.255.255.255. Now we
+ have a properly configured packet that we can transmit out a network
+ interface or save to a file.
+
+</BODY>
+</HTML>

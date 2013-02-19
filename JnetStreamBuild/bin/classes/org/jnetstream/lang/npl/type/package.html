@@ -1,0 +1,42 @@
+<body>
+<p>NPL language data type definitions. This package allows new data types to
+be added to NPL language. The default implementation supplies all the standard
+data types part of the core NPL language, but this package provides interfaces
+and classes which can be used to add new data type to NPL language.</p>
+<h2>Steps required to add a new data type</h2>
+There are only 3 steps that are required in order to add a completely new
+data type to NPL. 
+<ol>
+ <li> Create a data type controller/factory.</li>
+ <li> Create or define which object to hold the data you would like to use</li>
+ <li> Register the data type controller defined in step 1 with the NplRuntime</li>
+</ol>
+<p>Each data type within NPL consists of atleast 2 objects. The first object is a
+controller for the all instances of this particular data type. There is only
+a single controller object required. The controller object is allocated only
+once for the registry and then referenced by compiled NPL programs to perform
+certain work on various data types. The second object is allocated to hold
+actual data and this is also the object that the public API normally exposes. This
+data object does not have to implement any special interfaces. This object
+will be returned as the value from various getter methods of the compiled NPL
+definitions.
+<p>
+<h2>Example: adding a new data type</h3>
+<p>In this example we are going to add a new NPL data type that holds images.
+A packet containing GIF data in its payload can utilize our new data type
+to not only read the GIF data out of the packet, but can display it in some
+graphical window, outside the NPL scope of course.
+</p>
+<p>Here is how we are going to setup our data type. Since java SE already contains
+a nice API to read images, we will use the imageio package as the basis for our new type.
+What we do need to do is create a <code>ImageDataType</code> class that extends 
+the <code>AbstractDataType</code> that provides the basic implementation of
+all the DataType methods, this is the controller. The controller is the object
+that will create instances of variables and fields referenced in NPL definition,
+it will know how to read the data out of the packet's data buffer and initialize
+any new instances of the jpeg object we are going to use from the standard 
+java SE.
+<pre>
+[Under construction - MWB - March 2007]
+<pre>
+</body>

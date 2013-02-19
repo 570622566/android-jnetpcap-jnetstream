@@ -1,0 +1,478 @@
+<html>
+<body>
+<p>A high performance network packet capture framework. This is a
+high level packet capture framework that abstracts all of the complexity
+of live network captures, reading captured packets from capture files
+(trace files), streaming packet data accross java.io streams or enabling
+remote capture sesssion accross the network. The <code>org.jnetstream.capture</code>
+package allows easy processing and capture of network packets. Live
+packets can be captured on a local network interface or remotely.</p>
+
+<p>The main class you will be dealing with is the <code>Capture</code>
+interface. You aquire a reference to a <code>Capture</code> instance
+using factory methods in the <code>Captures</code> class for local
+sessions and <code>RemoteSession</code> for, you guessed it, remote
+sessions on a remote server. (To get a <code>RemoteSession</code> call
+the static method <code>RemoteServer.openSession(URI)</code> .) The
+factory methods return the most specific subclass of <code>LiveCapture</code>
+and <code>FileCapture</code>, all of which are subclasses of the base <code>Capture</code>
+interface. So remember that <code>LiveCapture</code> and <code>FileCapture</code>
+both extend <code>Capture</code>. You will see in the examples below the
+use of <code>Capture</code> and sometimes the more specific subclass
+depending if the method involved in the example need something out of
+the more specific subclass such as <code>LiveCapture.interfaceSnapshot()</code>
+method (see section "<code>CaptureInterface</code> state changes"
+below.)</p>
+
+<p><code>CapturePacket</code> is a high level object that holds a
+buffer with packet data as captured from a live network interface, a
+file or remote sender. It also contains some additional information
+needed for proper processing of the buffer. Also contains some meta data
+such as capture timestamp, a reference to the CaptureDevice which holds
+detailed descriptors about the network interface that the packet was
+captured on.</p>
+
+<h3>Getting started, aquiring a Capture instance</h3>
+<p>The Captures class provides the following static factory methods
+which instantiate capture sessions:
+<ul>
+	<li><code>Captures.openFile(File)</code> - opens up a capture file
+	for reading</li>
+
+	<li><code>Captures.openLive(NetworkInterface)</code> - opens up a
+	network interface for live capture from the network</li>
+
+	<li><code>Captures.openFile(InputStream)</code> - opens up a
+	capture from a stream, but exects the stream to be in supported file
+	format such as when you use a FileInputStream on a capture file.</li>
+
+	<li><code>CaptureInputStream</code> - this is a class that
+	deserializes <code>CapturePacket</code> written to a <code>CaptureOutputStream</code>.
+	Both these classes are subclasses of <code>InputStream</code> and <code>OutputStream</code>.
+	Passing a <code>CaptureInputStream</code> to <code>Captures.openFile(InputStream)</code>
+	method will throw an <code>CaptureFormatException</code> since the
+	stream is not formatted to like capture files.</li>
+</ul>
+
+And many many more variations of the above.
+</p>
+<h3>Reading from a <code>Capture</code> instance</h3>
+Next you will want get the packets from a capture session. The
+<code>Capture</code>
+interaface extends the
+<code>IOIterator</code>
+interface which uses the familiar
+<code>hasNext()</code>
+and
+<code>next()</code>
+method calls. So lets just open a live capture on all network interfaces
+a system has and print the packet properties to stdout:
+
+<pre>
+Capture capture = Captures.openLive(); // Opens up all network interfaces, except loopback ints
+while (capture.hasNext()) {
+	CapturePacket packet = capture.next();
+	System.out.println("packet properties=" + packet.toString());
+}
+</pre>
+<b>Note:</b>
+Note that you also need to catch some exceptions that are declared, but
+not included in the example.
+
+<h3>Capturing packets from live network interface and storing them
+in a capture file</h3>
+<p>Another common usage is to capture packets and store them in a
+file.</p>
+<p>So we first setup a source of packets which is a live network
+capture from a specific network interface.
+<pre>
+List&lt;CaptureDevice&gt; ints = Captures.listInterfaces();
+if (ints.isEmpty()) {
+	return; // No interfaces on this system
+}
+CaptureInterface netint = ints.get(0); // Just grab the first network interface
+Capture capture = Captures.openLive(netint);
+</pre>
+So now we have a source of packets which is the first network interface
+returned all the interfaces. Next we want to create a new file and
+append all the captured packets to that file. We will create the file in
+PCAP format.
+<pre>
+Captures.newFile(new File("mycapture.pcap", SuppliedFileTypes.PCAP, capture);
+</pre>
+The above line creates a new file called "mycapture.pcap" in PCAP format
+(2nd parameter). At this point all the needed initialization is done and
+a new file created with the right file header. The the last argument is
+the source of packets, our capture instance. The above method iterates
+through all the way to the end using {@link Capture#hasNext()} and
+{@link Capture#next()} method calls until hasNext eventually returns
+false. Those packets are written in the PCAP format into the capture
+file.
+</p>
+<h1>Filtering</h1>
+Filtering of packets being captured or read from a file is another
+common operation. Filtering involves creating a Filter object and using
+one of the factory methods that takes a filter. Most methods have
+varioutions of a call that does take a filter. Lets modify our above
+example and use a filter to only capture IP packets.
+
+<pre>
+List&lt;CaptureDevice&gt; ints = Captures.listInterfaces();
+if (ints.isEmpty()) {
+	return; // No interfaces on this system
+}
+CaptureDevice netint = ints.get(0); // Just grab the first network interface
+Filter filter = new BpfFilter(new PcapExpression("ip"));
+Capture capture = Captures.openLive(filter, netint);
+</pre>
+
+<p>The filter is a BPF filter (Berkley Packet Filter) that
+efficiently filters incomming packets being captured and only allows
+packets that match the filter criteria to be returned. The filter is
+actually applied to operating system kernel (if OS supports this option)
+and the packet capture driver efficiently filters packets without any
+extraneous copies of packet contents. Lastly the filter is simply
+supplied as the first parameter to the openLive method.</p>
+
+<p>An alternate way to set a filter is to set the filter on the
+CaptureDevice. Such as in this case:
+<pre>
+List&lt;CaptureDevice&gt; ints = Captures.listInterfaces();
+if (ints.isEmpty()) {
+	return; // No interfaces on this system
+}
+CaptureDevice netint = ints.get(0); // Just grab the first network interface
+Filter filter = new BpfFilter(new PcapExpression("ip"));
+netint.setFilter(filter);
+Capture capture = Captures.openLive(netint);
+</pre>
+</p>
+
+<p>This sets the filter only on this interface and not any other
+interfaces if they were specified. You can also change the filter after
+the capture has begun and even some packets returned. The only way to
+change a filter after the CaptureInterface has been applied, is to set
+it on the capture itself and not on the device instance directly.
+<pre>
+List&lt;CaptureDevice&gt; ints = Captures.listInterfaces();
+if (ints.isEmpty()) {
+	return; // No interfaces on this system
+}
+CaptureDevice netint = ints.get(0); // Just grab the first network interface
+Filter ipFilter = new BpfFilter(new PcapExpression("ip"));
+netint.setFilter(ipFilter);
+Capture capture = Captures.openLive(netint);
+
+// Get 10 IP packets
+for (int i = 0; i < 10 && capture.hasNext(); i ++) {
+  System.out.println("CaptureInstance=" + capture.next().getCaptureInterface());
+}
+
+// After netint has been applied it becomes immutable and we can no longer call
+// on its CaptureDevice.setFilter method. Use CaptureInterface.isMutable() to check for this.
+
+Filter ipxFilter = new BpfFilter(new JpcapExpression("ipx"));
+CaptureInterface ni = capture.setFilter(filter, netint); // Sets a new filter and creates a new instance of CaptureInterface
+
+// Get 10 IPX packets
+for (int i = 0; i < 10 && capture.hasNext(); i ++) {
+  System.out.println("CaptureInstance=" + capture.next().getCaptureInterface());
+}
+
+capture.close();
+</pre>
+
+The call to
+<code>capture.setFilter(filter, netint)</code>
+does not modify the netint instance, this instance is immutable after
+the call to Captures.openLive(netint). What happens is a new instance of
+CaptureInterface is created based on the old one, and the new filter set
+in the new instance. The call returns the new CaptureInstance reference,
+notice its no longer returned as CaptureDevice as its immediately
+applied to captures and becomes immutable. The reason for this strict
+mutable/immutable control is that any perviously captured packets will
+still reference the same CaptureInterface reference at the time they
+were captured. New packets returned after the new filter was applied to
+filter on IPX packets, will return references to new CaptureInterface
+that has the new filter applied.
+</p>
+
+
+<h1>Appending captured packets to an existing file</h1>
+<p>To append packets to an existing file you need to first get your
+source of packets setup, open up the capture file and use the methods in
+MutableFileCapture or simply call a utility method in <code>Captures.append()</code>
+to do the copying for you. This time lets use a NAP file and do the
+copying ourselves:
+<pre>
+Capture capture = Captures.openLive(); // Opens up all network interfaces, except loopback
+MutableCaptureFile file = CaptureFiles.openFile(new File("mycapture.nap");
+file.last(); // advance the iterator to past the last packet in the file
+
+while (capture.hasNext()) {
+	CapturePacket packet = capture.next();
+	file.add(packet);
+}
+</pre>
+First we create a new capture which opens up all the network interfaces
+for live capture. Second we open a NAP file. Third we advance the file
+position to the end of the file by calling {@link
+MutableFileCapture#last} which returns the last packet and advances the
+position past it. We want to append our packets to the end not insert
+them at the beginning although for an empty file beginning is the last
+element. Lastly we go into a loop that reads one packet at a time and
+using the mutable file adds or appends the packets to the file.
+</p>
+<p>We could have done steps 3 and 4 with a utility method. Here is
+the same example using the utility method:
+<pre>
+Capture capture = Captures.openLive(); // Opens up all network interfaces
+CaptureFile file = CaptureFiles.openFile(new File("mycapture.nap"));
+CaptureFiles.append(file, capture);
+</pre>
+
+Or this compact notation:
+<pre>
+CaptureFiles.catFile(new File("mycapture.nap"), Captures.openLive());
+</pre>
+
+<h3>CaptureInterface state changes</h3>
+<p>It is certainly possible for a network interface on which a
+capture is taking place to change state such as different set of
+LiveCapture.Option has been set by a separate instance of LiveCapture,
+someone had alterned the IP addresses assigned to the interface at
+runtime, a new filter applied, etc etc... All the while our capture
+session is still in progress. There is a simple way to record these
+changes by taking a <b>snapshot</b> of the interface config. After a
+snapshot is taken any packets returned will reference new
+CaptureInterface objects that reflect the exact config of the interface,
+while any previously returned packets will continue to reference the old
+CaptureInterface objects which contain the state before the snapshot
+took place. To take a snapshot simply call the
+LiveCapture.interfaceSnapshot method.
+<pre>
+LiveCapture capture = Captures.openLive();
+for (int i = 0; i < 10000 && capture.hasNext(); i ++) {
+  LivePacket packet = capture.next();
+  // Do something with the packet
+}
+
+// Some even caused one of the interface to change state, i.e. new IP address alias added to the interface
+capture.interfaceSnapshot();
+
+// Now capture 10000 more packets which reference new CaptureInterface objects
+for (int i = 0; i < 10000 && capture.hasNext(); i ++) {
+  LivePacket packet = capture.next();
+  // Do something with the packet
+}
+
+capture.close();
+</pre>
+
+The call to interfaceSnapshot() creates new CaptureInterface instances
+on all currently open interfaces. The new CaptureInterfaces are
+initialized to the latest state of the network interface, reflecting the
+fact that new IP address alias has been added to one network interfaces.
+You could more specifically target the exact interface instead of taking
+a snapshot of all interface by using the variation of the method
+interfaceSnapshot(CaptureInterface).
+</p>
+
+<p><b>Note that using the Capture.setFilter method to set a new
+filter automatically takes a snapshot to reflect the changed filter. It
+is not required to take a second snapshot by explicitely calling another
+interfaceSnapshot.</b></p>
+
+<h3>Static factory vs. abstract factory and working with
+RemoteSession objects</h3>
+All the above examples have used the static factory methods of Captures
+class. There is another way by using the abstract factory methods of
+Captures.LocalFactory and Captures.RemoteFactory interface methods both
+of which extend the common Captures.Factory, super interface. The static
+Captures methods are delegate methods that simply call on the default
+Captures.LocalFactory instance. You can use the Captures.getLocal()
+method to aquire a reference to the main factory that does all the work.
+To get a reference to the RemoteFactory reference you call on
+RemoteServer.openSession method which returns RemoteSession which is
+simply a subclass of the RemoteFactory interface.
+<pre>
+List&lt;CaptureDevice&gt; ints;
+LiveCapture live;
+FileCapture file;
+
+Captures.LocalFactory lf = Captures.getLocal();
+ints = lf.listInterfaces(); // List of all interfaces on local system
+live = lf.openLive();                        // Open all interfaces on local system for capture
+file = lf.openFile(new File("myfile.pcap")); // Open file on local system for reading and writting
+live.close();
+file.close();
+
+Captures.RemoteFactory rf = RemoteServer.openSession(new URI("192.168.1.1"));
+ints = rf.listInterfaces();                              // List of all interfaces on remote system
+live = rf.openLive();                                    // Open all interfaces on remote system for capture
+file = rf.openFile(new File("/tmp/myfile.pcap"));        // Open file on remote system for reading and writting
+
+live.close();
+file.close();
+</pre>
+
+Or even more abstracted since all these above methods are actually in
+the super interface Captures.Factory:
+
+<pre>
+List&lt;CaptureDevice&gt; ints;
+LiveCapture live;
+FileCapture file;
+Captures.Factory factory;
+
+factory = Captures.getLocal();
+ints = factory.listCaptureDevices();                        // List of all interfaces on local system
+live = factory.openLive();                              // Open all interfaces on local system for capture
+file = factory.openFile(new File("myfile.pcap"));       // Open file on local system for reading and writting
+live.close();
+file.close();
+
+RemoteSession session = RemoteServer.openSession(new URI("192.168.1.1"));
+factory = session;                                      // RemoteSession extends RemoteFactory     
+ints = factory.listCaptureDevices();                        // List of all interfaces on remote system
+live = factory.openLive();                              // Open all interfaces on remote system for capture
+file = factory.openFile(new File("/tmp/myfile.pcap"));  // Open file on remote system for reading and writting
+
+live.close();
+file.close();
+session.close(); // We needed to keep RemoteSession reference only so that we could explicitly close it
+                 // because RemoteFactory itself is not Closeable. 
+
+</pre>
+
+You get the point. There is not much difference in invoking factory
+methods for local or remote sessions. There are some restrictions and
+they are reflected in methods included in the <code>LocalFactory</code> and
+<code>RemoteFactory</code> interfaces. Certain methods that can only be invoked
+locally are not included in the RemoteFactory and vise versa. The above
+example assumes that you have an instance of RemoteServer running on the
+remote system at IP address 192.168.1.1. It should be clear at this
+point that the static <code>Captures</code> methods are only defined for all
+<code>LocalFactory</code> abstract methods. <code>RemoteSession</code> itself adds a few
+additional methods related to a remote session besides the methods
+extended from <code>RemoteFactory</code>.
+</p>
+
+<h3>Creating a new file and inserting customized records</h3>
+<p>Another thing you may wish to do, is to actually control all the
+parameters of a capture file. So lets do an example of where we create a
+Pcap file with a custom block record (file header).</p>
+<p>There are actually several ways to create an empty file in
+jNetStream capture framework.
+<ul>
+	<li>Use the <code>Captures</code> static methods</li>
+	<pre>
+PcapFile pcap = Captures.newFile(FileType.Pcap, new File("capture.pcap"));
+</pre>
+	<li>Aquire the current <code>Factory</code> for local sessions and use its
+	factory methods</li>
+	<pre>
+LocalFactory lf = Captures.getLocal();
+PcapFile pcap = lf.newFile(FileType.Pcap, new File("capture.pcap"));
+</pre>
+	<li>For known file types, use its convenience method to create a
+	new file</li>
+	<pre>
+PcapFile pcap = FileType.Pcap.newFile(File("capture.pcap"));
+</pre>
+</ul>
+
+Once we have a Pcap capture file we can proceed to tweak its contents.
+By default the capture file is created with a <code>PcapBlockRecord</code> already in
+place with default values, there is no way to create a file without
+these defaults. But its easy to clear out the file to its absolute
+minimum.
+
+<pre>
+PcapFile pcap = FileType.Pcap.newFile("capture.pcap"):
+PcapModifier modifier = pcap.getPcapIterator();
+modifier.removeAllRecords();
+</pre>
+At this point the file size is 0 bytes, all records have been completely
+removed. We can then proceed to add our custom block record with our new
+values:
+<pre>
+PcapFile pcap = FileType.Pcap.newFile("capture.pcap"):
+PcapModifier modifier = pcap.getPcapIterator();
+modifier.removeAllRecords();
+
+PcapBlockRecord block = modifier.addBlockRecord(
+	new byte[] {0x11, 0x22, 0x33, 0x44}, // Magic Number
+	2, 4,                                // Major and minor verions
+	PcapDLT.EN10,                        // DLT
+	0,                                   // Accuracy
+	0,                                   // Timezone
+	1024                                 // Snaplen
+);
+</pre>
+We're convieniently returned a reference to the newly created block
+record. We can then proceed to add packet records which is the only
+other type of record a Pcap file can have using
+<code>PcapModifier.addPacketRecord()</code>
+method. Notice that we added a bogus magic number, which the API allowed
+us to do. This creates an invalid pcap file that no program could read
+in, but if that's what the user wanted to do, its allowed.
+</p>
+<p>The other file formats, especially NAP file formats are a lot
+more involved with many different types of records possible and their
+Modifiers are much more comprehensive.
+<pre>
+NapFile nap = FileType.Nap.newFile("capture.nap");
+NapModifier modifier = nap.getNapIterator();
+/* 
+ * Now, using the NapModifier, we can add block, property, capture device, packet records.
+ * NapModifier allows addition of over a dozen different types of NAP records.
+ */
+</pre>
+You get the point.
+</p>
+<h3>Efficiency</h3>
+<p><code>Factory</code> methods may be much more efficient at copying packets
+around as more efficient algorithms may be used to accomplish the task
+then simply iterating one packet at a time. For example if you were
+appending PCAP file as sources to a destination file that was also a
+PCAP file, then raw bulk buffers of source file data may be copied at
+once, without the need to even do the minimal decoding that is done when
+packets are iterated over. Or if the destination file was a PCAP file
+and the source <code>LiveCapture</code> was also based on libpcap implementation (as
+it is, part of the first release) the much more efficient offline
+capture would be initiated which uses kernel drivers to dump packets
+directly into the destination capture file; a much more efficient short
+cut indeed. So the capture framework will pick the most efficient
+algorithm available for the circumstances at hand.</p>
+
+<p>The capture framework uses <code>java.nio</code> package extensively to
+allocate large direct buffers, map file contents into memory using
+native OS shortcuts and then, decodes only the smallest amount of data
+needed to accomplish the task. The objects returned such as
+CapturePacket and its subclassed variations reference into these buffers
+and don't typically allocate a lot of memory themselves. This means
+these objects can be created efficiently. Multiple packets are typically
+prefetched into a cache in larger chunks and share a single large
+buffer. Some buffers map file contents directly into buffer's memory
+ensuring that the file contents are only read into memory once; by the
+kernel.</p>
+
+<p>Also use the methods that take entire collections instead of
+accomplishing the same task by using methods that take a single element
+and you doing the iteration. This is especially true when modifying
+files or inserting/deleting packets from files. The implementation
+algorithms are tuned for executing operations as efficiently as possible
+given all the information supplied. So inserting or deleting a bunch of
+packets at once in a file is much more efficient then inserting or
+deleting a single packet at a time. The same is true for all methods
+that accept collections or arrays.</p>
+
+<p>Future enhancements may provide additional efficiencies as
+technologies develop and this project matures. The API is designed to
+hide the implementation details well and allows a lot of leaverage for
+the implementors to do their magic behind the scenes.</p>
+
+
+</body>
+</html>

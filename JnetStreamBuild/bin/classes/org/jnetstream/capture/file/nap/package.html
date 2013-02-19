@@ -1,0 +1,112 @@
+<BODY>
+Network cAPture file format (NAP). Typical capture file extension is
+<B>.nap</B>
+for NAP files.
+
+<h3>NAP API</h3>
+NAP API supplies support NAP (Network cAPture) file format to jNetPCAP
+capture framework. The NAP file format, its classes and interfaces have
+the following associations:
+<pre>
+NAPFile
+ +-> NAPBlock (1 .. *)
+   +-> NAPPacket (0 .. *)
+   +-> NAPVendor (0 .. *)
+   +-> NAPNoOp (0 .. *)
+   +-> NAPCaptureDevice (0 .. *)
+   +-> NAPBinding (0 .. *)
+   +-> NAPCounter (0 .. *)
+   +-> NAPEvent (0 .. *)
+   +-> NAPExpert (0 .. *)
+   +-> NAPProperty (0 .. *)
+   +-> NAPProtocol (0 .. *)
+   +-> NAPRouting (0 .. *)
+     
+</pre>
+
+The NAP file format, its classes and interfaces have the following
+generalization:
+<BR>
+(I = Interface, C = Class, AC = Abstract Class)
+<BR>
+
+<PRE>
+CaptureFiles (AC)
+
+CaptureFile (I)
+  +-> NAPFile (I)
+
+Record (I)
+ +-> NAPRecord (I)
+   +-> NAPBlock (I)
+   +-> NAPDataRecord (I)
+     +-> NAPPacket (I)
+     +-> NAPVendor (I)
+     +-> NAPNoOp (I)
+     +-> NAPMetaRecord (I)
+       +-> NAPCaptureDevice (I)
+       +-> NAPBinding (I)
+       +-> NAPCounter (I)
+       +-> NAPEvent (I)
+       +-> NAPExpert (I)
+       +-> NAPProperty (I)
+       +-> NAPProtocol (I)
+       +-> NAPRouting (I)
+     
+</PRE>
+
+So for example, lets look at a file with 3 block records. Each block is exactly 512Kb in length:
+
+<pre>
+NAPFile
+ +-> NAPBlock (declares: packet counter = 3000 packet records)
+   +-> NAPProperty (MetaRecord subType=Property, property count = 30)
+   +-> NAPCaptureDevice (MetaRecord subType=CaptureDevice, device capacity=3)
+   +-> NAPRouting (MetaRecord subType=Routing, contains routing table snapshot)
+   +-> NAPBinding (MetaRecord subType=Binding, contains user protocol bindings)
+   +-> NAPPacket (packet record #1)
+   +-> NAPPacket (packet record #2)
+   +-> NAPEvent (MetaRecord subType=Even, logged no-cable connected event)
+   +-> NAPEvent (MetaRecord subType=Even, logged cable connected event)
+   +-> NAPPacket (packet record #3)
+   +-> NAPPacket (packet record #4)
+   +-> NAPPacket (packet record #5)
+   +-> NAPPacket (packet record #6)
+   ...
+   +-> NAPPacket (packet record #3000)
+   +-> NAPNoOp (Pad to 512Kb boundary)
+ +-> NAPBlock (declares: packet counter = 3000 packet records)
+   +-> NAPProperty (MetaRecord subType=Property, property count = 30)
+   +-> NAPCaptureDevice (MetaRecord subType=CaptureDevice, device capacity=3)
+   +-> NAPRouting (MetaRecord subType=Routing, contains routing table snapshot)
+   +-> NAPBinding (MetaRecord subType=Binding, contains user protocol bindings)
+   +-> NAPPacket (packet record #1)
+   +-> NAPPacket (packet record #2)
+   +-> NAPPacket (packet record #3)
+   +-> NAPPacket (packet record #4)
+   +-> NAPEvent (MetaRecord subType=Even, logged no-cable connected event)
+   +-> NAPEvent (MetaRecord subType=Even, logged cable connected event)
+   +-> NAPPacket (packet record #5)
+   +-> NAPPacket (packet record #6)
+   ...
+   +-> NAPPacket (packet record #3000)
+   +-> NAPNoOp (Pad to 512Kb boundary)
+ +-> NAPBlock (declares: packet counter = 1600 packet records)
+   +-> NAPProperty (MetaRecord subType=Property, property count = 30)
+   +-> NAPCaptureDevice (MetaRecord subType=CaptureDevice, device capacity=3)
+   +-> NAPRouting (MetaRecord subType=Routing, contains routing table snapshot)
+   +-> NAPBinding (MetaRecord subType=Binding, contains user protocol bindings)
+   +-> NAPPacket (packet record #1)
+   +-> NAPPacket (packet record #2)
+   +-> NAPPacket (packet record #3)
+   +-> NAPPacket (packet record #4, flags=marked as having structural error)
+   +-> NAPPacket (packet record #5, flags=marked as hidden)
+   +-> NAPPacket (packet record #6)
+   ...
+   +-> NAPPacket (packet record #1600)
+   +-> NAPNoOp (Pad to 512Kb boundary)
+      
+</pre>
+
+
+</BODY>

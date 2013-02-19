@@ -1,0 +1,15 @@
+
+FileCapture cap = CaptureFactory.openFile("");
+
+FileCapture cap = LocalCaptures.openFile("");
+
+FileCapture cap = LocalCapture.openFile("");
+
+FileCapture cap = LocalFactory.openFile("");
+
+FileCapture cap = Captures.openFile("");
+
+FileCapture cap = Factory.openFile("");
+
+FileCapture cap = JNS.openFile("");
+

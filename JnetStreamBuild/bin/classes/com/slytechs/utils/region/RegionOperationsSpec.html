@@ -1,0 +1,325 @@
+<h1>Region Operations Specification</h1>
+This section defines in detail all the operations that are possible on a
+region and its effects on the internal structure of region and resulting
+segments. The section is extremely detailed since regions are such an
+important component of any editing implementations. The region behaviour
+is extensively documented in this document so that all results can be
+very predictable and testable for expected outcome.
+<h2>Regions and Segments</h2>
+Region is an arbitrary sequence of elements. It is not defined what the
+elments are and in reality its not important from region's perspective
+what that is. A region maintains which portions of the region are
+active or inactive and from those two sources of information its able to
+generate usable address space which is returned as a sequence of
+segments.
+<br>
+Each segment simply specifies which portion of the region are usable by
+supplying several properties about the segment of the region being
+describes. Those properties are
+<ul>
+	<li>start - the index of the first element within the region</li>
+	<li>length - number of elements within this segment</li>
+	<li>last - the index of the last element within the region</li>
+	<li>end - the index of the first element past the last element.
+	End index is outside the boundary of the segment and is not contained
+	within it.</li>
+	<li>region reference - a reference to parent region</li>
+</ul>
+A region has only the following properties:
+<ul>
+	<li>start is always 0, so no official start property is defined</li>
+	<li>length is immutable and has the number of elements in the
+	region</li>
+	<li>list of segments - a list of all the segments for this region</li>
+	<li>user data - a generic data argument which can be anything</li>
+</ul>
+
+All regions are immutable. This may be counter intuitive concept, but
+what happens is that once a region is created its start or length
+properties can never be changed. Although you are allowed to make
+mutable operations such as insert, remove and replace, what you are
+actually doing is adding new regions which change how things look
+externally, but in reality the region elements are never touched. They
+are simply either left as is or mapped out of the usable address space,
+but in reality they still exist.
+
+<h2>Regions</h2>
+Regions are crucial components of the entire EditableRegion and form a
+hierarchy of portions of a regions and sub-regions which have been
+replaced. Regions are partial regions that replace portions of a parent
+region. All operations performed on main EditableRegion result in a new
+region being generated and applied to a parent region to generate the
+required outcome.
+<ul>
+	<li>Remove operations use regions to replace a certain portion of
+	a parent region with a new 0 length region, resulting in effectively
+	the replaced/removed parts of the parent region being mapped out of
+	usable space and effectively removed.</li>
+
+	<li>Insert operations use regions to replace 0 amount of parent
+	region with a new region that has length greater then 0. In effect no
+	portion of the parent region is replaced, but a new region is inserted
+	at the requested position.</li>
+
+	<li>Replace operations both replace a certain amount of parent
+	region with new region that actually has length.</li>
+
+	<li>Lastly append operation insert is a little different since the
+	append operation requires new element to be added past the last element
+	within a region and note that regions are immutable so its length
+	actually can not be extended. The append operation works outside the
+	bounds of any addressable region and is treated differently.
+</ul>
+<h3>Quick Example</h3>
+An example will outline the concept of regions:
+<pre>
+       0              5    0              5             10 11 
+       +--------------+    +--------------------------------+
+  L2 = |aa|bb|cc|dd|ee| =&gt; | 1| 2| a|aa|bb|cc|dd|ee| c| 4| 5|
+       +--------------+    +--------------------------------+
+        \___      ___/
+          0 \    / 3       0              5     7
+          +--------+       +--------------------+
+  L1 =    | a| b| c|    =&gt; | 1| 2| a| b| c| 4| 5|
+          +--------+       +--------------------+
+           \      /
+       0    \    /    5
+       +--------------+
+  L0 = | 1| 2| 3| 4| 5|
+       +--------------+
+</pre>
+<p>Layer 0 is made up of the following L0[0,4]. L0 is no longer
+mutable and its elements can only be mapped out of usable address space,
+but any of the operatations supported. L0 has 5 elements which are 1, 2,
+3, 4, 5. Start of the region is at index 0 and last elements is at index
+4, thus 0 through 4 is 5 elements total. At this point the resulting
+segment is simply S0[0,4] where start=0 and last = 4.</p>
+<p>In the next operation we apply L1[0,3]=(a,b,c). We replace 3rd
+element at index 2 with L1. The final result after applying
+L0.replace(2, 1, L1) is a 3 segments and a new view of the entire region
+as follows: S0(0,1), S1(2, 4), S(5,6). Notice that the usable address
+space of all 3 segments is contigeous, meaning 0,1,2,3,4,5,6, but the
+segment structure breaks it up for us into usable segments. The view of
+the entire result is this: View(L0.0, L0.1, L1.0, L1.1, L1.2, L0.3,
+L0.4). Notice that element at L0.2 does not exist in the resultable view
+as its been replaced by L1.</p>
+<p>Lastly we apply L2[0,4]=(aa,bb,cc,dd,ee) with L1.replace(1, 1,
+L2). Which results in the following view: View(L0.0, L0.1, L1.0, L2.0,
+L2.1, L2.3, L2.4, L1.2, L0.3, L0.4). The segments simply break this view
+up, well into segments as follows: s0(L0.0, L0.1), s1(L1.0),
+s2(L2.0-L2.4), s3(L1.2), s4(L0.3,L0.4) which add up exactly to the view.
+So the view and represented as a sequence of segments of usable
+elements, the hide the complex region mapping.</p>
+<h3>A more practical example</h3>
+Lets take a quick look at what happends when we map a file and then we
+do try and do a single operation on it to replace 2 bytes with some
+other buffer.
+<pre>
+         0                        10,000
+         +---------------~~--------+
+  file = | 1| 2| 3| 4| 5|..| 10,000|
+         +---------------~~--------+
+</pre>
+<p>First we learn that the file we are editing has exactly 100,000
+bytes in it. Therefore we create the initial region of length 100,000.
+The length is immutable so we can not change it after its creation. Now
+if we want to replace 2 bytes at offset 3 with another buffer that
+contains 3 bytes. So in essence, we are unmapping a single byte at index
+3 and replacing it with 2 bytes from our own buffer. In effect, the file
+length has increased by 1 byte since we removed 1 byte and added 2.</p>
+<p>Since the file region is immutable, we simply overlay a new
+region over the region that holds usable address space of the file. as
+follows:</p>
+<pre>
+            0     2  
+            +-----+ 
+  L =       | a| b|
+            +-----+
+             \    |
+         0    \   |              10,000
+         +---------------~~--------+
+  file = | 1| 2| 3| 4| 5|..| 10,000|
+         +---------------~~--------+
+</pre>
+<p>The segments returned are s0(file.0, file.1), s1(L.0, l.1),
+s2(file.3 - file.99,999)</p>
+<p>Although the actual process is fairely complex, its easy to see
+that it would not be very hard to work with these segments. If you
+wanted to write out the new contents into some other file such as in
+save operation of the changes you could use the following code, somewhat
+in pseudo form:
+<pre>
+FileChannel file = new RandomAccessFile("testfile", "r").getChannel();
+/*
+ * Map the file contents to a region
+ * EditableRegion(FileChannel source, long length, Object)
+ */
+EditableRegion&lt;Object&gt; edits = new EditableRegion&lt;Object&gt;(file, file.length(), file);
+
+/*
+ * Next replace 1 byte in file at offset 2 with 2 bytes found in the buffer
+ * EditableRegion&lt;Object&gt;.replace(long start, long toBeReplacedLength, long newLength, Object)
+edits.replace(2, 1, 2, char[] {'a', 'b'});
+
+/*
+ * Now return the view as an interator of segment 
+ */
+IOIterator&lt;RegionSegment&lt;Object&gt;&gt; i = edits.segments(); 
+
+FileChannel out = new RandomAccesFile("dstFile", "rw").getChannel();
+
+while (i.hasNext()) {
+  RegionSegment&lt;Object&gt; s = i.next();
+  
+  final Object data = s.getData();
+  final long start = s.getStart();  // Starting index within the data object
+  final long length = s.getLength();// Number of bytes within the data object
+  final long end = s.getEnd();      // Ending index within the data object
+  
+  if (data instanceof FileChannel) {
+    FileChannel channel = (FileChannel)data;
+    /* 
+     * If we are the source file channel use file channel ops to efficiently 
+     * copy the contents. The segment tells us exactly which section of the
+     * file to copy from the channel
+     */
+    out.transferFrom(start, length, channel);
+    
+  } else {
+    byte[] b = (byte[])o;
+    
+    /*
+     * Copy the byte array 1 byte at a time, as an example.
+     */
+    for (int i = start; i &lt; end; i ++) {
+      out.put(b[i]);
+    }
+  }
+}
+</pre>
+
+Note how our initial operation on the file, modified the view of the
+file and did not actually change anything within the file. The change is
+only propagated after we write everything out to a new file. The new
+file is missing the original byte at offset 2 and has 2 new bytes
+inserted in its place.
+<h2>Detailed case study of each region operations</h2>
+The mappings that take place are very complex and this section outlines
+each of the possible category of operations, especially the corner cases
+that could possibly cause problems. These cases are also coded via jUnit
+test cases to test the working of regions. Dummy regions are setup and
+the operations listed in these cases are applied, the result is
+thourghly checked to make sure the expected outcome is achieved.
+<h3>Case 1 - Single region</h3>
+Simplest test case when there is 1 region and no performed on it.
+<pre>
+         0  1  2  3  4  5
+         +--------------+
+     A = | 1| 2| 3| 4| 5|
+         +--------------+
+</pre>
+Segments
+<ol>
+	<li>s0(A.0 - A.4)
+</ol>
+
+<h3>Case 2 - Single insert in the middle</h3>
+<pre>
+          +--+
+  B =     | 1|
+          +--+
+           \ |
+       0    \|        5
+       +--------------+
+  A =  | 1| 2| 3| 4| 5|
+       +--------------+
+
+</pre>
+Segments
+<ol>
+	<li>(A.0 - A.1)</li>
+	<li>(B.0)</li>
+	<li>(A.2 - A.4)</li>
+</ol>
+
+<h3>Case 3 - Single insert in the front</h3>
+<pre>
+    +--+
+ B =| 1|
+    +--+
+     \ |
+      \|              5
+       +--------------+
+  A =  | 1| 2| 3| 4| 5|
+       +--------------+
+
+</pre>
+Notice segment #1 is empty. Empty segments are not returned to
+the user, but are kept internally.
+<ol>
+	<li>()</li>
+	<li>(B.0)</li>
+	<li>(A.0 - A.4)</li>
+</ol>
+
+<h3>Case 4 - Single insert before last</h3>
+Insert 1 byte in the middle of the region
+<pre>
+                +--+
+ B =            | 1|
+                +--+
+                 \ |
+       0          \|  5
+       +--------------+
+  A =  | 1| 2| 3| 4| 5|
+       +--------------+
+
+</pre>
+Segments
+<ol>
+	<li>(A.0 - A.3)</li>
+	<li>(B.0)</li>
+	<li>(A.4)</li>
+</ol>
+
+<h3>Case 5 - Single insert at the end</h3>
+This type of insert on a normal region is not allowed as index 5 is outside of 
+the region's boundarie's. The editable region checks for this condition and
+keeps track of appended regions. Once a region has been appended it can not
+be removed, only replaced by another region.
+<pre>
+                      +--+
+ B =                  | 1|
+                      +--+
+                      | /
+       0             =+=
+       +--------------+
+  A =  | 1| 2| 3| 4| 5|
+       +--------------+
+
+</pre>
+The region will return a single segment, as the insert actually is not allowed 
+to happen this way. EditableRegion will add its own segment at the appropriate
+time, but that is not what the actual region generated.
+<ol>
+	<li>(A.0 - A.4)</li>
+</ol>
+
+<h3>Case 6 - Double insert in the front</h3>
+<pre>
+    +--+ +--+
+ B =| 1| | 1| = C
+    +--+ +--+
+     \ |/__/
+      \|/              5
+       +--------------+
+  A =  | 1| 2| 3| 4| 5|
+       +--------------+
+
+</pre>
+<ol>
+	<li>()</li>
+	<li>(B.0)</li>
+	<li>(C.0)</li>
+	<li>(A.0 - A.4)</li>
+</ol>

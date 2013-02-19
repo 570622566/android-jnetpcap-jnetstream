@@ -1,0 +1,10 @@
+<body>
+Implementation of jNetStream LiveCapture interfaces. This package
+provides a concrete implementation defined by LiveCapture API. The
+implementation is based on jNetPcap platform dependent capture library
+that is a wrapper around libpcap and WinPcap native libraries. The
+LiveCapture implementation is implemented as a separate module, so that
+it can be completely decoupled from the main jNetStream implementation.
+This allows LiveCapture to be excluded from certain deployments, when
+live captures are not necessary.
+</body>

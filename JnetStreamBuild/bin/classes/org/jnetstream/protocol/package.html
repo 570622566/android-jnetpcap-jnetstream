@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<body>
+<P>A network protocol registry. You can access various protocol related services using this package.
+This package is responsible for finding and loading protocol definitions and their bindings. The runtime
+environment uses the ProtocolRepository to query about protocol bindings. Only protocols that
+are needed at any given time are loaded (ondemand protocol loading.) Thus jNetStream is much more
+efficient as only parts of the protocols are loaded when needed. All protocols once loaded are
+cached and are reused when needed again.</P>
+
+<P>The main class is the ProtocolRegistry which allows a user to access most of the functionality. Using 
+the ProtocolRegistry.getDefault() factory method, you get a working instance of the ProtocolRegistry which
+you can use to:
+<UL>
+ <LI> Query for a list of all the known protocols. The list will contain protocols currently know, but not
+ neccessarily loaded. Protocols are loaded only when needed, otherwise only a shell of a protocol is kept around.
+ <LI> Query for a list of bindings for the protocols.
+ <LI> Load user specified bindings. Bindings can also be unloaded and reset by the user. Again using methods
+ defined in ProtocolRegistry.
+</UL>
+</P>
+
+<P>jNetStream also defines a number of standard names for protocol suites. Protocol suite is a way to group all
+of the defined protocols by functionality. These protocol suite definitions actually correspond to directory
+structure in native filesystem or database by which all the protocol definitions are grouped. Also jNetStream
+expects protocol binding definitions to be placed in suite specific files. User defined suites are not
+part of this API, as this API only exposes the system defined suites. There is a large number of them which
+for the most part will address any protocol placement needs, but user can also define its own definitions as long
+as they do not conflict with these system defined ones.</P>
+
+<P>To get a list of these system defined suites use the ProtocolSuite enum class. In pre Java5 environments this class
+defines all of the standard Java5 enum API and is upwards compatible. This means that the user is safe in using the
+ProtocolSuite API in both pre and post Java5 environments without getting compiler warnings or errors.</P>
+
+</body>
+</html>

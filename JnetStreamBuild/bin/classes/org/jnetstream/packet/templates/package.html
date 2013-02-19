@@ -1,0 +1,28 @@
+<html>
+<body>
+<p>Templates package which allow easy packet building using initializers and 
+templates. This package contains a set of packet templates and initializers that are distributed as core
+part of jNetStream. The user can easily add its own templates by using 
+<code>Packets.newPacket(Class&lt;? extends PacketTemplate&gt;)</code> method which will cache the
+template. 
+<h2>Packet initializers</h2>
+A packet initializer is an object implementing the <code>PacketInitializer</code> interface
+that knows how to export some content into the packet decoder's runtime 
+environment. That content exported as properties and possibly existing or
+new namespace is then utilized by packet codec and NPL definitions to lookup
+certain initializer property values that are assigned as initial state of 
+data fields within a packet's headers.
+
+<h2>Packet templates</h2>
+A PacketTemplate is a prebuit packet
+whos contents are efficiently copied to a new packet which can then be further 
+customized. Instead of adding individual headers and providing all the
+initialization functions, you can use a template to use one of the prebuilt
+packets to initialize new packets. You then can further customize the packet
+with your own data. Packet templates rely on packet initializers to help them
+initialize the state of the template packet.
+</p>
+
+
+</body>
+</html>
